@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>DUELO ORBITAL - TORNEIO</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: #0a0f1e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            touch-action: none;
+        }
+        #game-container {
+            background: #0b111f;
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.8), 0 0 0 2px #2a3a5c inset;
+            text-align: center;
+            position: relative;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 50%;
+            box-shadow: 0 0 40px #3a5a9c55;
+            background: #03050a;
+            width: 400px;
+            height: 400px;
+            touch-action: none;
+        }
+        .painel {
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            margin: 20px 10px 5px 10px;
+            font-weight: bold;
+            text-shadow: 0 0 10px cyan;
+        }
+        .rodadas-container {
+            margin: 5px 10px;
+            color: #aaccff;
+            font-weight: bold;
+        }
+        .barra-progresso {
+            width: 100%;
+            height: 8px;
+            background: #1a2a4a;
+            border-radius: 10px;
+            margin: 5px 0;
+            overflow: hidden;
+        }
+        .progresso-preenchido {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ffaa00, #ff5500);
+            border-radius: 10px;
+            transition: width 0.2s;
+        }
+        .botoes-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        button {
+            background: #1e2a4a;
+            border: 2px solid #4a7a9c;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            box-shadow: 0 5px 0 #0a121f;
+            cursor: pointer;
+            transition: 0.05s linear;
+            touch-action: manipulation;
+            user-select: none;
+            flex: 1;
+        }
+        button:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 #0a121f;
+            background: #3a5a8c;
+        }
+        button:disabled {
+            opacity: 0.5;
+            transform: none;
+            box-shadow: 0 5px 0 #0a121f;
+            cursor: not-allowed;
+            background: #1e2a4a;
+        }
+        #btn-proxima {
+            background: #2a5a3a;
+            border-color: #4aff88;
+            flex: 0.5;
+        }
+        .status {
+            color: #aaccff;
+            margin-top: 15px;
+            font-size: 1.2rem;
+            min-height: 30px;
+        }
+        .badge {
+            background: #00000055;
+            padding: 6px 15px;
+            border-radius: 30px;
+            border: 1px solid #4a7a9c;
+        }
+        .footer {
+            color: #6a8aac;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+        .resultado-rodada {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 10px 0;
+            font-size: 1.1rem;
+        }
+        
+        #gameover-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000000dd;
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            visibility: hidden;
+        }
+        .gameover-box {
+            background: #0b111f;
+            border: 3px solid #ffaa00;
+            border-radius: 40px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 0 80px #ff5500;
+            min-width: 300px;
+        }
+        .gameover-box h1 {
+            color: #ffaa00;
+            font-size: 3rem;
+            margin: 0 0 20px;
+            text-shadow: 0 0 20px red;
+        }
+        .gameover-box p {
+            color: white;
+            font-size: 1.5rem;
+            margin: 15px 0;
+        }
+        .btn-reiniciar {
+            background: #ffaa00;
+            border: none;
+            color: #0a0f1e;
+            font-size: 1.8rem;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-weight: bold;
+            box-shadow: 0 8px 0 #aa5500;
+            margin-top: 20px;
+            width: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="orbitalCanvas" width="400" height="400"></canvas>
+    
+    <div class="painel">
+        <span>🔴 VOCÊ: <span id="player-score">0</span></span>
+        <span>🤖 IA EXTREMA: <span id="ia-score">0</span></span>
+    </div>
+    
+    <div class="rodadas-container">
+        <div style="display: flex; justify-content: space-between;">
+            <span>RODADA <span id="rodada-atual">1</span>/10</span>
+            <span>🏆 <span id="vencedor-previsto">---</span></span>
+        </div>
+        <div class="barra-progresso">
+            <div id="barra-progresso-preenchida" class="progresso-preenchido" style="width: 10%;"></div>
+        </div>
+    </div>
+    
+    <!-- Resultado da rodada atual -->
+    <div class="resultado-rodada">
+        <span>🎯 Você: <span id="resultado-voce">---</span></span>
+        <span>🤖 IA: <span id="resultado-ia">---</span></span>
+    </div>
+    
+    <div class="botoes-container">
+        <button id="action-btn">SEGURE PARA ATIRAR</button>
+        <button id="btn-proxima" disabled>▶ PRÓXIMA</button>
+    </div>
+    
+    <div class="status">
+        <span class="badge" id="game-message">🔥 POSIÇÕES INICIAIS DEFINIDAS</span>
+    </div>
+    <div class="footer">
+        ⬇️ Segure para mirar. Solte para ATIRAR. ⬇️
+    </div>
+</div>
+
+<div id="gameover-overlay">
+    <div class="gameover-box">
+        <h1 id="gameover-titulo">FIM DE JOGO</h1>
+        <p id="gameover-resultado">VOCÊ: 0 x 0 IA</p>
+        <p id="gameover-mensagem" style="color: #aaccff; font-size: 1.2rem;"></p>
+        <button class="btn-reiniciar" id="btn-reiniciar">JOGAR NOVAMENTE</button>
+    </div>
+</div>
+
+<script>
+    (function(){
+        "use strict";
+        
+        // Elementos
+        const canvas = document.getElementById('orbitalCanvas');
+        const ctx = canvas.getContext('2d');
+        const playerScoreSpan = document.getElementById('player-score');
+        const iaScoreSpan = document.getElementById('ia-score');
+        const gameMessage = document.getElementById('game-message');
+        const actionBtn = document.getElementById('action-btn');
+        const btnProxima = document.getElementById('btn-proxima');
+        const rodadaAtualSpan = document.getElementById('rodada-atual');
+        const barraProgresso = document.getElementById('barra-progresso-preenchida');
+        const vencedorPrevistoSpan = document.getElementById('vencedor-previsto');
+        const resultadoVoceSpan = document.getElementById('resultado-voce');
+        const resultadoIASpan = document.getElementById('resultado-ia');
+        const overlay = document.getElementById('gameover-overlay');
+        const gameoverTitulo = document.getElementById('gameover-titulo');
+        const gameoverResultado = document.getElementById('gameover-resultado');
+        const gameoverMensagem = document.getElementById('gameover-mensagem');
+        const btnReiniciar = document.getElementById('btn-reiniciar');
+
+        // Configurações
+        const CENTRO = { x: 200, y: 200 };
+        const RAIO_ORBITA = 140;
+        const VEL_PROJETIL = 0.028;
+        
+        // POSIÇÕES PREDEFINIDAS (FIXAS)
+        const POS_INICIAL_PROJETIL = 0.0;      // Laser começa no ângulo 0
+        const POS_INICIAL_JOGADOR = 0.0;        // Jogador começa no ângulo 0 (mesmo lugar do laser)
+        const POS_INICIAL_IA = Math.PI;          // IA começa oposta (180 graus)
+        
+        let anguloProjetil = POS_INICIAL_PROJETIL;
+        let anguloJogador = POS_INICIAL_JOGADOR;
+        let anguloIA = POS_INICIAL_IA;
+        
+        let pontosJogador = 0;
+        let pontosIA = 0;
+        let rodadaAtiva = true;
+        let tiroPreparado = false;
+        let acelerando = false;
+        
+        const VEL_NORMAL = 0.015;
+        const VEL_ACELERADA = 0.042;
+        
+        let rodadaNumero = 1;
+        const TOTAL_RODADAS = 10;
+        let jogoEncerrado = false;
+        
+        // NOVO: Controle de quem já atirou na rodada
+        let jogadorAtirou = false;
+        let iaAtirou = false;
+        let pontosJogadorRodada = 0;
+        let pontosIARodada = 0;
+        
+        let timeoutAtual = null;
+
+        function limparTimeouts() {
+            if (timeoutAtual) {
+                clearTimeout(timeoutAtual);
+                timeoutAtual = null;
+            }
+        }
+
+        function normalizarAngulo(ang) {
+            while (ang < 0) ang += 2 * Math.PI;
+            while (ang >= 2 * Math.PI) ang -= 2 * Math.PI;
+            return ang;
+        }
+
+        function distanciaAngular(a1, a2) {
+            let diff = Math.abs(a1 - a2);
+            return Math.min(diff, 2 * Math.PI - diff);
+        }
+
+        function avaliarTiro(angAtirador) {
+            if (!rodadaAtiva || jogoEncerrado) return { acertou: false, qualidade: 'ruim', pontos: 0 };
+            const dist = distanciaAngular(angAtirador, anguloProjetil);
+            if (dist <= 0.18) return { acertou: true, qualidade: 'perfeito', pontos: 100 };
+            if (dist <= 0.40) return { acertou: true, qualidade: 'bom', pontos: 50 };
+            return { acertou: false, qualidade: 'ruim', pontos: -20 };
+        }
+
+        function atualizarPlacar() {
+            playerScoreSpan.textContent = pontosJogador;
+            iaScoreSpan.textContent = pontosIA;
+            
+            if (pontosJogador > pontosIA) vencedorPrevistoSpan.textContent = 'VOCÊ';
+            else if (pontosIA > pontosJogador) vencedorPrevistoSpan.textContent = 'IA';
+            else vencedorPrevistoSpan.textContent = 'EMPATE';
+            
+            rodadaAtualSpan.textContent = rodadaNumero;
+            const percentual = (rodadaNumero / TOTAL_RODADAS) * 100;
+            barraProgresso.style.width = percentual + '%';
+        }
+
+        function atualizarResultadoRodada() {
+            if (jogadorAtirou) {
+                resultadoVoceSpan.textContent = pontosJogadorRodada > 0 ? `+${pontosJogadorRodada}` : pontosJogadorRodada;
+                resultadoVoceSpan.style.color = pontosJogadorRodada >= 0 ? '#2a7aff' : '#E15554';
+            } else {
+                resultadoVoceSpan.textContent = '---';
+                resultadoVoceSpan.style.color = '#aaccff';
+            }
+            
+            if (iaAtirou) {
+                resultadoIASpan.textContent = pontosIARodada > 0 ? `+${pontosIARodada}` : pontosIARodada;
+                resultadoIASpan.style.color = pontosIARodada >= 0 ? '#2a7aff' : '#E15554';
+            } else {
+                resultadoIASpan.textContent = '---';
+                resultadoIASpan.style.color = '#aaccff';
+            }
+        }
+
+        function verificarFimRodada() {
+            if (jogadorAtirou && iaAtirou && !jogoEncerrado) {
+                // Compara quem fez mais pontos na rodada
+                let mensagemVencedor = '';
+                if (pontosJogadorRodada > pontosIARodada) {
+                    mensagemVencedor = `🏆 Você venceu a rodada! +${pontosJogadorRodada} vs +${pontosIARodada}`;
+                } else if (pontosIARodada > pontosJogadorRodada) {
+                    mensagemVencedor = `💀 IA venceu a rodada! +${pontosIARodada} vs +${pontosJogadorRodada}`;
+                } else {
+                    mensagemVencedor = `⚖️ Empate na rodada!`;
+                }
+                
+                gameMessage.innerText = mensagemVencedor;
+                rodadaAtiva = false;
+                actionBtn.disabled = true;
+                btnProxima.disabled = false;
+            }
+        }
+
+        function verificarFimDeJogo() {
+            if (rodadaNumero >= TOTAL_RODADAS && !jogoEncerrado) {
+                encerrarJogoCompleto();
+                return true;
+            }
+            return false;
+        }
+
+        function encerrarJogoCompleto() {
+            jogoEncerrado = true;
+            rodadaAtiva = false;
+            actionBtn.disabled = true;
+            btnProxima.disabled = true;
+            
+            limparTimeouts();
+            
+            let titulo = '';
+            let mensagem = '';
+            if (pontosJogador > pontosIA) {
+                titulo = '🏆 VITÓRIA! 🏆';
+                mensagem = 'Você derrotou a IA Extrema!';
+                gameoverTitulo.style.color = '#2a7aff';
+            } else if (pontosIA > pontosJogador) {
+                titulo = '💀 DERROTA 💀';
+                mensagem = 'A IA Extrema foi superior...';
+                gameoverTitulo.style.color = '#E15554';
+            } else {
+                titulo = '⚖️ EMPATE ⚖️';
+                mensagem = 'Incrível! Mesma pontuação!';
+                gameoverTitulo.style.color = '#FFAA00';
+            }
+            
+            gameoverTitulo.textContent = titulo;
+            gameoverResultado.textContent = `VOCÊ ${pontosJogador} x ${pontosIA} IA`;
+            gameoverMensagem.textContent = mensagem;
+            
+            overlay.style.visibility = 'visible';
+        }
+
+        function reiniciarJogoCompleto() {
+            limparTimeouts();
+            
+            pontosJogador = 0;
+            pontosIA = 0;
+            rodadaNumero = 1;
+            jogoEncerrado = false;
+            actionBtn.disabled = false;
+            btnProxima.disabled = true;
+            
+            prepararNovaRodada();
+            
+            overlay.style.visibility = 'hidden';
+            atualizarPlacar();
+            gameMessage.innerText = '🔥 NOVA PARTIDA! Rodada 1/10';
+        }
+
+        function prepararNovaRodada() {
+            // Reseta posições PREDEFINIDAS
+            anguloProjetil = POS_INICIAL_PROJETIL;
+            anguloJogador = POS_INICIAL_JOGADOR;
+            anguloIA = POS_INICIAL_IA;
+            
+            rodadaAtiva = true;
+            jogadorAtirou = false;
+            iaAtirou = false;
+            pontosJogadorRodada = 0;
+            pontosIARodada = 0;
+            tiroPreparado = false;
+            acelerando = false;
+            
+            actionBtn.disabled = false;
+            actionBtn.textContent = 'SEGURE PARA ATIRAR';
+            btnProxima.disabled = true;
+            
+            atualizarResultadoRodada();
+        }
+
+        function executarTiroIA() {
+            if (!rodadaAtiva || jogoEncerrado || iaAtirou) return;
+            
+            const resultado = avaliarTiro(anguloIA);
+            let acertouFinal = resultado.acertou ? (Math.random() < 0.95) : false;
+            
+            if (acertouFinal) {
+                pontosIARodada = resultado.pontos;
+                pontosIA += resultado.pontos;
+                gameMessage.innerText = `🤖 IA: ${resultado.qualidade.toUpperCase()}! ${resultado.pontos > 0 ? '+' : ''}${resultado.pontos}`;
+            } else {
+                pontosIARodada = -20;
+                pontosIA = Math.max(0, pontosIA - 20);
+                gameMessage.innerText = `🤖 IA: ERROU! -20`;
+            }
+            
+            iaAtirou = true;
+            atualizarPlacar();
+            atualizarResultadoRodada();
+            verificarFimRodada();
+        }
+
+        function executarTiroJogador() {
+            if (!rodadaAtiva || jogoEncerrado || jogadorAtirou) return;
+            if (!tiroPreparado) return;
+            
+            const resultado = avaliarTiro(anguloJogador);
+            
+            if (resultado.acertou) {
+                pontosJogadorRodada = resultado.pontos;
+                pontosJogador += resultado.pontos;
+                gameMessage.innerText = `🎯 VOCÊ: ${resultado.qualidade.toUpperCase()}! +${resultado.pontos}`;
+            } else {
+                pontosJogadorRodada = -20;
+                pontosJogador = Math.max(0, pontosJogador - 20);
+                gameMessage.innerText = `💥 VOCÊ: ERROU! -20`;
+            }
+            
+            jogadorAtirou = true;
+            tiroPreparado = false;
+            acelerando = false;
+            actionBtn.textContent = 'AGUARDE...';
+            actionBtn.disabled = true;
+            
+            atualizarPlacar();
+            atualizarResultadoRodada();
+            
+            // IA atira automaticamente depois do jogador
+            limparTimeouts();
+            timeoutAtual = setTimeout(() => {
+                executarTiroIA();
+                timeoutAtual = null;
+            }, 400);
+            
+            verificarFimRodada();
+        }
+
+        function iniciarAceleracao() {
+            if (!rodadaAtiva || jogoEncerrado || jogadorAtirou) return;
+            acelerando = true;
+            tiroPreparado = true;
+            actionBtn.textContent = 'SOLTE PARA ATIRAR!';
+            gameMessage.innerText = '⚡ ACELERANDO... Solte no momento exato!';
+        }
+
+        function pararAceleracao() {
+            if (acelerando && rodadaAtiva && !jogoEncerrado && !jogadorAtirou) {
+                executarTiroJogador();
+            }
+            acelerando = false;
+            tiroPreparado = false;
+        }
+
+        function avancarProximaRodada() {
+            if (jogoEncerrado) return;
+            
+            rodadaNumero++;
+            atualizarPlacar();
+            
+            if (verificarFimDeJogo()) {
+                return;
+            }
+            
+            prepararNovaRodada();
+            gameMessage.innerText = `🔥 RODADA ${rodadaNumero}/${TOTAL_RODADAS} - POSIÇÕES INICIAIS`;
+        }
+
+        function desenharCena() {
+            ctx.clearRect(0, 0, 400, 400);
+            ctx.fillStyle = '#030711';
+            ctx.fillRect(0, 0, 400, 400);
+            
+            ctx.fillStyle = '#ffffff90';
+            for(let i=0; i<50; i++) {
+                ctx.beginPath();
+                ctx.arc((i*17)%400, (i*23)%400, 1.5, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            ctx.beginPath();
+            ctx.arc(CENTRO.x, CENTRO.y, RAIO_ORBITA, 0, 2*Math.PI);
+            ctx.strokeStyle = '#1e3a6a';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            const pX = CENTRO.x + Math.cos(anguloProjetil) * RAIO_ORBITA;
+            const pY = CENTRO.y + Math.sin(anguloProjetil) * RAIO_ORBITA;
+            
+            ctx.beginPath();
+            ctx.arc(pX, pY, 22, 0, 2*Math.PI);
+            ctx.strokeStyle = '#FFD96688';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(pX, pY, 8, 0, 2*Math.PI);
+            ctx.fillStyle = '#FFAA00';
+            ctx.shadowColor = '#FFAA00';
+            ctx.shadowBlur = 25;
+            ctx.fill();
+            
+            const jX = CENTRO.x + Math.cos(anguloJogador) * RAIO_ORBITA;
+            const jY = CENTRO.y + Math.sin(anguloJogador) * RAIO_ORBITA;
+            ctx.beginPath();
+            ctx.arc(jX, jY, 12, 0, 2*Math.PI);
+            ctx.fillStyle = '#2a7aff';
+            ctx.shadowColor = '#2a7aff';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 12px Arial';
+            ctx.fillText('VOCÊ', jX-25, jY-22);
+            
+            const iX = CENTRO.x + Math.cos(anguloIA) * RAIO_ORBITA;
+            const iY = CENTRO.y + Math.sin(anguloIA) * RAIO_ORBITA;
+            ctx.beginPath();
+            ctx.arc(iX, iY, 12, 0, 2*Math.PI);
+            ctx.fillStyle = '#E15554';
+            ctx.shadowColor = '#E15554';
+            ctx.fill();
+            ctx.strokeStyle = '#FFCCCC';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#FFAAAA';
+            ctx.fillText('IA', iX-15, iY-22);
+            
+            if (!rodadaAtiva && !jogoEncerrado) {
+                ctx.fillStyle = '#00000060';
+                ctx.fillRect(0, 0, 400, 400);
+                ctx.font = 'bold 16px Arial';
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.fillText('CLIQUE EM "PRÓXIMA"', 200, 200);
+                ctx.textAlign = 'left';
+            }
+            
+            if (jogoEncerrado) {
+                ctx.fillStyle = '#00000080';
+                ctx.fillRect(0, 0, 400, 400);
+                ctx.font = 'bold 20px Arial';
+                ctx.fillStyle = 'white';
+                ctx.shadowColor = 'black';
+                ctx.shadowBlur = 10;
+                ctx.textAlign = 'center';
+                ctx.fillText('FIM DE JOGO', 200, 200);
+                ctx.textAlign = 'left';
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function loopAnimacao() {
+            if (rodadaAtiva && !jogoEncerrado) {
+                anguloProjetil = normalizarAngulo(anguloProjetil + VEL_PROJETIL);
+                
+                if (!jogadorAtirou) {
+                    const vel = acelerando ? VEL_ACELERADA : VEL_NORMAL;
+                    anguloJogador = normalizarAngulo(anguloJogador + vel);
+                }
+                
+                if (!iaAtirou) {
+                    const diff = anguloProjetil - anguloIA;
+                    if (Math.abs(diff) > 0.15) {
+                        anguloIA += Math.sign(diff) * 0.018;
+                    }
+                    anguloIA = normalizarAngulo(anguloIA + VEL_NORMAL * 0.9);
+                }
+            }
+            
+            desenharCena();
+            requestAnimationFrame(loopAnimacao);
+        }
+
+        function configurarEventos() {
+            actionBtn.addEventListener('mousedown', (e) => { e.preventDefault(); iniciarAceleracao(); });
+            actionBtn.addEventListener('mouseup', (e) => { e.preventDefault(); pararAceleracao(); });
+            actionBtn.addEventListener('mouseleave', () => { if(acelerando) pararAceleracao(); });
+            
+            actionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); iniciarAceleracao(); }, {passive: false});
+            actionBtn.addEventListener('touchend', (e) => { e.preventDefault(); pararAceleracao(); });
+            actionBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); pararAceleracao(); });
+            
+            btnProxima.addEventListener('click', () => {
+                avancarProximaRodada();
+            });
+            
+            btnReiniciar.addEventListener('click', () => {
+                reiniciarJogoCompleto();
+            });
+        }
+
+        function iniciarJogo() {
+            configurarEventos();
+            reiniciarJogoCompleto();
+            desenharCena();
+            requestAnimationFrame(loopAnimacao);
+        }
+        
+        iniciarJogo();
+    })();
+</script>
+</body>
+</html>
